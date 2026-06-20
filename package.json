@@ -1,0 +1,35 @@
+{
+  "name": "ai-telco-agent-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/start-all.js",
+    "dev:no-security": "NO_SECURITY=true node scripts/start-all.js",
+    "dev:portal": "npm --workspace @telco-demo/portal run dev",
+    "dev:agent": "npm --workspace @telco-demo/agent run dev",
+    "dev:mcp": "npm --workspace @telco-demo/mcp-server run dev",
+    "start:portal": "npm --workspace @telco-demo/portal start",
+    "start:agent": "npm --workspace @telco-demo/agent start",
+    "start:mcp": "npm --workspace @telco-demo/mcp-server start",
+    "test": "node --test \"packages/**/*.test.js\" \"services/**/*.test.js\"",
+    "lint": "node scripts/lint-basic.js"
+  },
+  "engines": {
+    "node": ">=20.11"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jose": "^5.9.6",
+    "uuid": "^11.0.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {}
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@telco-demo/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./auth": "./src/auth.js",
+    "./config": "./src/config.js",
+    "./protocol": "./src/protocol.js",
+    "./http": "./src/http.js",
+    "./logger": "./src/logger.js",
+    "./scopes": "./src/scopes.js"
+  }
+}
