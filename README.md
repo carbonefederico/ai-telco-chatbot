@@ -28,19 +28,14 @@ flowchart LR
   OIDC["PingOne / OIDC Provider"]
 
   Browser -->|"OIDC redirect login"| OIDC
-  OIDC -->|"authorization code callback"| Browser
   Browser -->|"POST /api/oidc/token"| Portal
   Portal -->|"exchange code for tokens"| OIDC
-  Portal -->|"access token"| Browser
 
   Browser -->|"chat request"| Portal
   Portal -->|"token exchange for agent token"| OIDC
   Portal -->|"A2A-like request"| Agent
   Agent -->|"token exchange for MCP token"| OIDC
   Agent -->|"MCP tool call"| MCP
-  MCP -->|"tool result"| Agent
-  Agent -->|"agent response"| Portal
-  Portal -->|"chat response"| Browser
 ```
 
 ## Non-CIBA Flow
@@ -121,7 +116,6 @@ sequenceDiagram
 | `how much data have I used?` | `get_customer_profile` | No | Returns mobile and home data usage from the profile tool. |
 | `show my bills` | `get_payment_summary` | Yes | Starts CIBA, returns pending approval, then polling returns recent bills after approval. |
 | `what is my latest bill?` | `get_payment_summary` | Yes | Same CIBA-protected payment path. |
-| `is there an outage?` | none today | No | The mock agent answers with general support guidance because no outage MCP tool exists yet. |
 
 ## MCP Tools And Scopes
 
@@ -136,7 +130,19 @@ The CIBA scope is separate from MCP authorization. MCP authorization is based on
 
 The demo is generic OIDC/OAuth, but the `.env.example` names the values you need from PingOne.
 
-### 1. Portal SPA / Web App
+### PingOne Objects Used By This Demo
+
+The local services use these PingOne applications/resources:
+
+| PingOne object | Example app ID | Used by | Environment variables |
+| --- | --- | --- | --- |
+| `Customer Support Agent - Customer Portal` | `b0065845-ad96-441f-83cc-65fa59fd9713` | Browser OIDC login and authorization-code flow | `OIDC_CLIENT_ID`, optional `OIDC_CLIENT_SECRET` |
+| `Customer Support Agent - Customer Portal API` | `6a387af8-02bd-40e3-9d8f-3afe7ea1b942` | Portal backend confidential client for token exchange before calling the agent | `API_OAUTH_CLIENT_ID`, `API_OAUTH_CLIENT_SECRET` |
+| `Customer Support Agent - MCP Server` | `6aa10bdc-39bd-441b-8563-dd7708c0d526` | MCP target audience/resource and CIBA client for payment approval | `MCP_EXPECTED_AUDIENCE`, `CIBA_CLIENT_ID`, `CIBA_CLIENT_SECRET` |
+
+The demo also has an **agent API boundary** between the portal backend and the agent service. In PingOne, model that boundary with an API/resource and an agent invocation scope such as `customer-support-agent:agent:invoke`. The portal backend exchanges the user token for that scope before calling `/a2a/message`.
+
+### 1. Customer Portal Application
 
 Create an OIDC application for the customer portal login.
 
@@ -164,14 +170,29 @@ OIDC_SCOPES=openid profile customer-support-agent:portal-api:chat
 API_EXPECTED_AUDIENCE=customer-support-agent-portal-api
 ```
 
-### 2. Portal API Resource
+### 2. Customer Portal API Application
 
-Create or configure the API resource that represents the portal backend API.
+Create or configure the backend/API application used by the portal server. This is the confidential OAuth client that performs token exchange before the portal calls the agent.
 
-Recommended scope:
+Recommended portal API scope for the browser token:
 
 ```text
 customer-support-agent:portal-api:chat
+```
+
+Recommended agent invocation scope requested by the portal backend during token exchange:
+
+```text
+customer-support-agent:agent:invoke
+```
+
+Environment values:
+
+```bash
+API_EXPECTED_AUDIENCE=customer-support-agent-portal-api
+AGENT_TOKEN_EXCHANGE_SCOPE=customer-support-agent:agent:invoke
+API_OAUTH_CLIENT_ID=6a387af8-02bd-40e3-9d8f-3afe7ea1b942
+API_OAUTH_CLIENT_SECRET=YOUR_PORTAL_API_CLIENT_SECRET
 ```
 
 The current code validates the frontend token and expected audience at the portal API. If you want the portal API to enforce an inbound chat scope, add a required-scope check on `POST /api/chat`; the current primary authorization demonstration is downstream token exchange and MCP tool scopes.
@@ -186,22 +207,20 @@ Recommended scope:
 customer-support-agent:agent:invoke
 ```
 
-The portal backend uses OAuth token exchange to swap the inbound user token for an agent-scoped token before calling `/a2a/message`.
+The portal backend uses OAuth token exchange to swap the inbound user token for an agent-scoped token before calling `/a2a/message`. The agent service validates this token with `AGENT_EXPECTED_AUDIENCE`.
 
 Environment values:
 
 ```bash
 AGENT_EXPECTED_AUDIENCE=customer-support-agent-agent-api
 AGENT_TOKEN_EXCHANGE_SCOPE=customer-support-agent:agent:invoke
-API_OAUTH_CLIENT_ID=YOUR_PORTAL_BACKEND_CLIENT_ID
-API_OAUTH_CLIENT_SECRET=YOUR_PORTAL_BACKEND_CLIENT_SECRET
 ```
 
-The `API_OAUTH_CLIENT_ID` / `API_OAUTH_CLIENT_SECRET` client must be allowed to perform token exchange for the agent scope.
+The `Customer Support Agent - Customer Portal API` client must be allowed to perform token exchange for this agent scope.
 
-### 4. MCP API Resource
+### 4. MCP Server Application And Resource
 
-Create an API resource for MCP.
+Create or configure the MCP Server application/resource. It is the resource protected by the MCP scopes and can also be used as the CIBA client for payment approval.
 
 Required scopes:
 
@@ -221,11 +240,11 @@ AGENT_OAUTH_CLIENT_ID=YOUR_AGENT_BACKEND_CLIENT_ID
 AGENT_OAUTH_CLIENT_SECRET=YOUR_AGENT_BACKEND_CLIENT_SECRET
 ```
 
-The `AGENT_OAUTH_CLIENT_ID` / `AGENT_OAUTH_CLIENT_SECRET` client must be allowed to perform token exchange for both MCP scopes.
+The agent backend client must be allowed to perform token exchange for both MCP scopes. If you use the `Customer Support Agent - MCP Server` application for this local demo, use its client ID/secret for the relevant MCP/CIBA client variables.
 
 ### 5. CIBA Configuration
 
-Enable CIBA for payment approval. The payment MCP tool starts CIBA and returns `approval_pending` to the agent.
+Enable CIBA on the MCP Server application used for payment approval. The payment MCP tool starts CIBA and returns an approval-pending status to the agent.
 
 Required settings:
 
@@ -239,7 +258,7 @@ Required settings:
 Environment values:
 
 ```bash
-CIBA_CLIENT_ID=YOUR_CIBA_CLIENT_ID
+CIBA_CLIENT_ID=6aa10bdc-39bd-441b-8563-dd7708c0d526
 CIBA_CLIENT_SECRET=YOUR_CIBA_CLIENT_SECRET
 CIBA_SCOPE=openid
 CIBA_MOCK_APPROVAL_SECONDS=8
