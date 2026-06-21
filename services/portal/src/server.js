@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { decodeJwt, UnsecuredJWT } from 'jose';
+import { decodeJwt } from 'jose';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { authMiddleware, staticDemoToken, verifyIdToken } from '@telco-demo/shared/auth';
@@ -43,21 +43,19 @@ app.get('/health', (_req, res) => {
 app.get('/config.js', (_req, res) => {
   res.type('application/javascript').send(
     `window.TELCO_CONFIG = ${JSON.stringify({
-      authMode: authConfig.authMode,
       issuer: authConfig.issuer,
       clientId: authConfig.clientId,
       authorizationEndpoint: authConfig.authorizationEndpoint,
       tokenEndpoint: authConfig.tokenEndpoint,
       redirectUri: authConfig.redirectUri,
       scopes: authConfig.scopes,
-      devAuthEnabled: service.devAuthEnabled,
       noSecurity: service.noSecurity
     })};`
   );
 });
 
 app.post('/api/dev-token', asyncHandler(async (_req, res) => {
-  if (service.noSecurity || authConfig.authMode === 'no_security') {
+  if (service.noSecurity) {
     logEvent('portal-api', 'static-login', {
       subject: 'static-demo-user',
       mode: 'no_security'
@@ -70,41 +68,15 @@ app.post('/api/dev-token', asyncHandler(async (_req, res) => {
     return;
   }
 
-  if (!service.devAuthEnabled || authConfig.authMode !== 'dev') {
-    res.status(404).json({ error: 'not_found' });
-    return;
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  logEvent('portal-api', 'dev-login', {
-    subject: 'demo-user',
-    mode: 'dev'
-  });
-  const token = await new UnsecuredJWT({
-    sub: 'demo-user',
-    name: 'Federico Carbone',
-    customer_id: 'cust-1001',
-    scope: authConfig.scopes.join(' ')
-  })
-    .setIssuedAt(now)
-    .setExpirationTime(now + 3600)
-    .setIssuer('telco-demo-dev')
-    .setAudience(service.apiExpectedAudience || 'telco-demo')
-    .encode();
-
-  res.json({
-    access_token: token,
-    token_type: 'Bearer',
-    expires_in: 3600
-  });
+  res.status(404).json({ error: 'not_found' });
 }));
 
 app.post('/api/oidc/token', asyncHandler(async (req, res) => {
   const input = oidcTokenExchangeSchema.parse(req.body);
-  if (authConfig.noSecurity || authConfig.authMode !== 'jwks') {
+  if (authConfig.noSecurity) {
     res.status(400).json({
       error: 'invalid_auth_mode',
-      message: 'OIDC token exchange is only available when AUTH_MODE is jwks'
+      message: 'OIDC token exchange is not available when security is bypassed'
     });
     return;
   }
@@ -278,7 +250,7 @@ function getIdentityClaims(accessToken) {
 }
 
 async function exchangeTokenForAgent(accessToken) {
-  if (authConfig.noSecurity || authConfig.authMode === 'no_security' || authConfig.authMode === 'dev') {
+  if (authConfig.noSecurity) {
     return accessToken || staticDemoToken;
   }
 

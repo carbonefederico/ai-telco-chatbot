@@ -36,7 +36,6 @@ export function oidcConfig() {
   const clientId = process.env.OIDC_CLIENT_ID ?? '';
   return {
     noSecurity,
-    authMode: noSecurity ? 'no_security' : process.env.AUTH_MODE ?? 'jwks',
     discoveryUri: process.env.OIDC_DISCOVERY_URI ?? '',
     issuer: '',
     jwksUri: '',
@@ -60,12 +59,12 @@ export async function loadOidcConfig(options = {}) {
   const config = oidcConfig();
   const expectedAudience = options.expectedAudience ?? '';
   config.audience = expectedAudience;
-  if (config.noSecurity || config.authMode === 'dev') return config;
+  if (config.noSecurity) return config;
   if (!config.discoveryUri) {
-    throw new Error('OIDC_DISCOVERY_URI is required when AUTH_MODE is jwks');
+    throw new Error('OIDC_DISCOVERY_URI is required');
   }
   if (!config.clientId) {
-    throw new Error('OIDC_CLIENT_ID is required when AUTH_MODE is jwks');
+    throw new Error('OIDC_CLIENT_ID is required');
   }
 
   const response = await fetch(config.discoveryUri, {
@@ -114,7 +113,6 @@ export function serviceConfig() {
     cibaClientSecret: process.env.CIBA_CLIENT_SECRET ?? '',
     cibaScope: process.env.CIBA_SCOPE ?? '',
     cibaMockApprovalSeconds: readNumber('CIBA_MOCK_APPROVAL_SECONDS', 8),
-    devAuthEnabled: readBoolean('DEV_AUTH_ENABLED', false),
     noSecurity: readBoolean('NO_SECURITY', false)
   };
 }

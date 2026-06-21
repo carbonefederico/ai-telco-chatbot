@@ -37,10 +37,7 @@ app.get('/health', (_req, res) => {
 
 async function mcpAuth(req, res, next) {
   try {
-    const token =
-      authConfig.noSecurity || authConfig.authMode === 'no_security'
-        ? staticDemoToken
-        : extractBearerToken(req.headers.authorization);
+    const token = authConfig.noSecurity ? staticDemoToken : extractBearerToken(req.headers.authorization);
     const auth = await verifyAccessToken(token, authConfig);
     logEvent('mcp-auth', 'accepted', {
       mode: auth.mode,

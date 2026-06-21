@@ -11,7 +11,7 @@ export function createCibaService(serviceConfig, authConfig) {
   async function startPaymentApproval({ auth, customerId }) {
     const approvalId = randomUUID();
     const now = Date.now();
-    const isMock = authConfig.noSecurity || authConfig.authMode === 'dev';
+    const isMock = authConfig.noSecurity;
 
     if (isMock) {
       const approval = {

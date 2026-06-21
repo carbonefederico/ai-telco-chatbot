@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, decodeJwt, jwtVerify } from 'jose';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { oidcConfig } from './config.js';
 
 const jwksCache = new Map();
@@ -52,7 +52,7 @@ export function requireScope(auth, requiredScope) {
 
 function getJwks(jwksUri) {
   if (!jwksUri) {
-    throw new AuthError('OIDC discovery metadata must provide jwks_uri when AUTH_MODE is jwks', 500);
+    throw new AuthError('OIDC discovery metadata must provide jwks_uri', 500);
   }
   if (!jwksCache.has(jwksUri)) {
     jwksCache.set(jwksUri, createRemoteJWKSet(new URL(jwksUri)));
@@ -61,13 +61,8 @@ function getJwks(jwksUri) {
 }
 
 export async function verifyAccessToken(token, config = oidcConfig()) {
-  if (config.noSecurity || config.authMode === 'no_security') {
+  if (config.noSecurity) {
     return normalizeAuth(staticDemoPayload, token || staticDemoToken, 'no_security');
-  }
-
-  if (config.authMode === 'dev') {
-    const payload = decodeJwt(token);
-    return normalizeAuth(payload, token, 'dev');
   }
 
   const verifyOptions = {};
@@ -79,12 +74,8 @@ export async function verifyAccessToken(token, config = oidcConfig()) {
 }
 
 export async function verifyIdToken(token, config = oidcConfig()) {
-  if (config.noSecurity || config.authMode === 'no_security') {
+  if (config.noSecurity) {
     return staticDemoPayload;
-  }
-
-  if (config.authMode === 'dev') {
-    return decodeJwt(token);
   }
 
   const verifyOptions = {};
@@ -116,7 +107,7 @@ export function authMiddleware(options = {}) {
   const config = options.config ?? oidcConfig();
   return async (req, res, next) => {
     try {
-      if (config.noSecurity || config.authMode === 'no_security') {
+      if (config.noSecurity) {
         req.auth = await verifyAccessToken(staticDemoToken, config);
         next();
         return;

@@ -134,7 +134,7 @@ function showLanding() {
   els.homeView.classList.add('hidden');
   els.landingView.classList.remove('hidden');
   els.loginButton.classList.remove('hidden');
-  if (config.devAuthEnabled || config.noSecurity) {
+  if (config.noSecurity) {
     els.devLoginButton.classList.remove('hidden');
   }
   els.logoutButton.classList.add('hidden');
@@ -233,7 +233,7 @@ els.chatForm.addEventListener('submit', async (event) => {
   await sendChat(message);
 });
 
-if (config.devAuthEnabled || config.noSecurity) {
+if (config.noSecurity) {
   els.devLoginButton.classList.remove('hidden');
 }
 

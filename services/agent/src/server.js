@@ -126,7 +126,7 @@ app.listen(service.agentPort, '127.0.0.1', () => {
 });
 
 async function exchangeTokenForMcp(accessToken) {
-  if (authConfig.noSecurity || authConfig.authMode === 'no_security' || authConfig.authMode === 'dev') {
+  if (authConfig.noSecurity) {
     return accessToken || staticDemoToken;
   }
 

@@ -19,7 +19,7 @@ test('parseScopes accepts common scope claim shapes', () => {
 });
 
 test('verifyAccessToken returns static auth when no security is enabled', async () => {
-  const auth = await verifyAccessToken('anything', { noSecurity: true, authMode: 'no_security' });
+  const auth = await verifyAccessToken('anything', { noSecurity: true });
 
   assert.equal(auth.mode, 'no_security');
   assert.equal(auth.token, 'anything');
@@ -29,7 +29,7 @@ test('verifyAccessToken returns static auth when no security is enabled', async 
 });
 
 test('authMiddleware bypasses missing Authorization header in no security mode', async () => {
-  const middleware = authMiddleware({ config: { noSecurity: true, authMode: 'no_security' } });
+  const middleware = authMiddleware({ config: { noSecurity: true } });
   const req = { headers: {} };
   const res = {
     status() {

@@ -42,10 +42,9 @@ test('loadOidcConfig overlays OIDC discovery metadata', async () => {
   }
 });
 
-test('loadOidcConfig fails fast when discovery uri is missing in jwks mode', async () => {
+test('loadOidcConfig fails fast when discovery uri is missing', async () => {
   const originalEnv = { ...process.env };
   process.env = {
-    AUTH_MODE: 'jwks',
     OIDC_CLIENT_ID: 'client-123'
   };
 
