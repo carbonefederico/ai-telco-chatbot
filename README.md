@@ -69,7 +69,7 @@ sequenceDiagram
 
 ## CIBA Flow
 
-Payment and bill questions call the MCP payment tool. The MCP tool is CIBA-protected, so the first response is `approval_pending`. Polling then checks the approval status without making another LLM call.
+Payment and bill questions call the MCP payment tool. The MCP tool is CIBA-protected, so the first response is an approval-pending status, not payment data. Polling then checks the approval status without making another LLM call; after approval, the browser receives the final bill details and recent invoices.
 
 ```mermaid
 sequenceDiagram
@@ -88,20 +88,29 @@ sequenceDiagram
   A->>M: get_payment_summary
   M->>I: CIBA backchannel auth request
   I-->>M: auth_req_id
-  M-->>A: approval_pending
+  M-->>A: Approval required
   A-->>P: A2A-like response with approval metadata
   P-->>B: Pending approval message
 
-  loop Poll approval status
+  loop Poll while customer approval is pending
     B->>P: GET /api/approvals/:approvalId
     P->>A: GET /a2a/approvals/:approvalId
     A->>M: GET /approvals/:approvalId
     M->>I: CIBA token request with auth_req_id
-    I-->>M: authorization_pending or access token
-    M-->>A: pending or approved payment summary
-    A-->>P: Approval status
-    P-->>B: Approval status
+    I-->>M: authorization_pending
+    M-->>A: Still waiting for approval
+    A-->>P: Still waiting for approval
+    P-->>B: Still waiting for approval
   end
+
+  B->>P: GET /api/approvals/:approvalId
+  P->>A: GET /a2a/approvals/:approvalId
+  A->>M: GET /approvals/:approvalId
+  M->>I: CIBA token request with auth_req_id
+  I-->>M: access token
+  M-->>A: Approved payment summary
+  A-->>P: Approved payment summary
+  P-->>B: Final bill details and recent invoices
 ```
 
 ## Example Prompts
