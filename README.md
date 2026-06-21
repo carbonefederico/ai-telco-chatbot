@@ -285,13 +285,13 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-For a local bypass demo:
+For a local bypass demo, use the dedicated npm script:
 
 ```bash
 npm run dev:no-security
 ```
 
-In `NO_SECURITY=true` mode:
+That script starts the services with security bypass enabled:
 
 - Login signs in a static user.
 - JWT validation is bypassed by the portal, agent, and MCP.
@@ -301,10 +301,6 @@ In `NO_SECURITY=true` mode:
 ## Important Environment Variables
 
 ```bash
-NO_SECURITY=false
-AUTH_MODE=jwks
-DEV_AUTH_ENABLED=false
-
 PORTAL_PORT=3000
 AGENT_PORT=3001
 MCP_PORT=3002
