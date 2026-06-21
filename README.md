@@ -24,30 +24,22 @@ flowchart LR
   Browser["Browser SPA"]
   Portal["Portal Backend API<br/>services/portal"]
   Agent["Dummy Agent<br/>services/agent"]
-  MockLLM["OpenAI-style Mock LLM<br/>heuristic tool decisions"]
   MCP["MCP Server<br/>services/mcp-server"]
   OIDC["PingOne / OIDC Provider"]
 
   Browser -->|"OIDC redirect login"| OIDC
   OIDC -->|"authorization code callback"| Browser
   Browser -->|"POST /api/oidc/token"| Portal
-  Portal -->|"authorization_code token request"| OIDC
+  Portal -->|"exchange code for tokens"| OIDC
   Portal -->|"access token"| Browser
 
-  Browser -->|"POST /api/chat<br/>Bearer user access token"| Portal
-  Portal -->|"validate JWT"| Portal
-  Portal -->|"token exchange<br/>agent scope"| OIDC
-  Portal -->|"POST /a2a/message<br/>Bearer agent token"| Agent
-  Agent -->|"validate JWT"| Agent
-  Agent -->|"chat completion request"| MockLLM
-  MockLLM -->|"tool_calls"| Agent
-  Agent -->|"token exchange<br/>MCP scopes"| OIDC
-  Agent -->|"MCP tool call<br/>Bearer MCP token"| MCP
-  MCP -->|"validate JWT + tool scope"| MCP
+  Browser -->|"chat request"| Portal
+  Portal -->|"token exchange for agent token"| OIDC
+  Portal -->|"A2A-like request"| Agent
+  Agent -->|"token exchange for MCP token"| OIDC
+  Agent -->|"MCP tool call"| MCP
   MCP -->|"tool result"| Agent
-  Agent -->|"tool result messages"| MockLLM
-  MockLLM -->|"final answer"| Agent
-  Agent -->|"A2A-like response"| Portal
+  Agent -->|"agent response"| Portal
   Portal -->|"chat response"| Browser
 ```
 
@@ -61,24 +53,16 @@ sequenceDiagram
   participant P as Portal API
   participant I as PingOne / OIDC
   participant A as Agent
-  participant L as Mock LLM
   participant M as MCP Server
 
   B->>P: POST /api/chat "what is my plan?"
-  P->>P: Validate user access token
   P->>I: Token exchange for agent token
   I-->>P: Agent access token
   P->>A: POST /a2a/message
-  A->>A: Validate agent token
-  A->>L: messages + tool definitions
-  L-->>A: tool_calls: get_customer_profile
   A->>I: Token exchange for MCP token
   I-->>A: MCP access token
-  A->>M: call get_customer_profile
-  M->>M: Validate token + profile scope
-  M-->>A: Mock profile and usage data
-  A->>L: Tool result
-  L-->>A: Final answer
+  A->>M: get_customer_profile
+  M-->>A: Profile and usage data
   A-->>P: A2A-like response
   P-->>B: Chat answer
 ```
@@ -93,29 +77,22 @@ sequenceDiagram
   participant P as Portal API
   participant I as PingOne / OIDC + CIBA
   participant A as Agent
-  participant L as Mock LLM
   participant M as MCP Server
 
   B->>P: POST /api/chat "show my bills"
-  P->>P: Validate user access token
   P->>I: Token exchange for agent token
   I-->>P: Agent access token
   P->>A: POST /a2a/message
-  A->>L: messages + tool definitions
-  L-->>A: tool_calls: get_payment_summary
   A->>I: Token exchange for MCP token
   I-->>A: MCP access token
-  A->>M: call get_payment_summary
-  M->>M: Validate token + payments scope
+  A->>M: get_payment_summary
   M->>I: CIBA backchannel auth request
   I-->>M: auth_req_id
   M-->>A: approval_pending
-  A->>L: Tool result with approval_pending
-  L-->>A: Pending approval answer
   A-->>P: A2A-like response with approval metadata
   P-->>B: Pending approval message
 
-  loop Poll approval status, no LLM call
+  loop Poll approval status
     B->>P: GET /api/approvals/:approvalId
     P->>A: GET /a2a/approvals/:approvalId
     A->>M: GET /approvals/:approvalId
