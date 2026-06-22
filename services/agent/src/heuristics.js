@@ -35,6 +35,7 @@ export function toolsForQuestion(text) {
 
 export function buildAnswer(question, toolResults) {
   const lines = [];
+  const profileFocus = classifyProfileFocus(question);
   const profile = toolResults.find((result) => result.tool === 'get_customer_profile' && result.data && !result.error);
   const payments = toolResults.find((result) => result.tool === 'get_payment_summary' && result.data && !result.error);
   const approval = toolResults.find((result) => result.data?.status === 'approval_pending')?.data;
@@ -43,12 +44,25 @@ export function buildAnswer(question, toolResults) {
 
   if (profile) {
     const data = profile.data;
-    lines.push(
-      `I found your ${data.plan} service. Your account is ${data.status}, loyalty tier is ${data.loyaltyTier}, and your current cycle ends on ${data.usage.billingCycleEndsOn}.`
-    );
-    lines.push(
-      `Current usage is ${data.usage.mobileDataGb} GB mobile data and ${data.usage.homeDataGb} GB home data.`
-    );
+    if (profileFocus.includes('plan')) {
+      lines.push(
+        `Your current plan is ${data.plan}. The account is ${data.status}, your loyalty tier is ${data.loyaltyTier}, and your billing cycle ends on ${data.usage.billingCycleEndsOn}.`
+      );
+    }
+
+    if (profileFocus.includes('usage')) {
+      lines.push(
+        `Current usage is ${data.usage.mobileDataGb} GB mobile data and ${data.usage.homeDataGb} GB home data. The current cycle ends on ${data.usage.billingCycleEndsOn}.`
+      );
+    }
+
+    if (profileFocus.includes('devices') && Array.isArray(data.devices) && data.devices.length > 0) {
+      const deviceLines = data.devices.map((device) => {
+        const name = device.model ?? device.label ?? device.type;
+        return `- ${name}: ${device.status}`;
+      });
+      lines.push(`Your registered devices are:\n${deviceLines.join('\n')}`);
+    }
   }
 
   if (payments && payments.data.status !== 'approval_pending') {
@@ -97,6 +111,25 @@ export function buildAnswer(question, toolResults) {
     intent: classifyQuestion(question),
     approval
   };
+}
+
+function classifyProfileFocus(text) {
+  const normalized = normalizeQuestion(text);
+  const focus = new Set();
+
+  if (/\b(device|devices|router|sim)\b/.test(normalized)) focus.add('devices');
+  if (/\b(usage|data|speed)\b/.test(normalized)) focus.add('usage');
+  if (/\b(plan|plans|profile|service|services|fiber|mobile|subscription|package|tariff|contract)\b/.test(normalized)) {
+    focus.add('plan');
+  }
+
+  if (focus.size === 0) {
+    focus.add('plan');
+    focus.add('usage');
+    focus.add('devices');
+  }
+
+  return [...focus];
 }
 
 function normalizeQuestion(text) {

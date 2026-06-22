@@ -32,6 +32,33 @@ test('buildAnswer returns profile data for plan questions', () => {
   assert.match(response.answer, /Fiber Max 1 Gbps/);
 });
 
+test('buildAnswer returns device data for device questions', () => {
+  const response = buildAnswer('what are my devices', [
+    {
+      tool: 'get_customer_profile',
+      data: {
+        plan: 'Fiber Max 1 Gbps + Mobile Unlimited',
+        status: 'active',
+        loyaltyTier: 'gold',
+        devices: [
+          { type: 'router', model: 'TelcoHub X6', status: 'online' },
+          { type: 'sim', label: 'Primary mobile SIM', status: 'active' }
+        ],
+        usage: {
+          billingCycleEndsOn: '2026-06-30',
+          mobileDataGb: 42.8,
+          homeDataGb: 812
+        }
+      }
+    }
+  ]);
+
+  assert.match(response.answer, /Your registered devices are:/);
+  assert.match(response.answer, /TelcoHub X6: online/);
+  assert.match(response.answer, /Primary mobile SIM: active/);
+  assert.doesNotMatch(response.answer, /Current usage is/);
+});
+
 test('buildAnswer includes scoped denial when a payment tool is forbidden', () => {
   const response = buildAnswer('What is my bill?', [
     {

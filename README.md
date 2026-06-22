@@ -110,12 +110,24 @@ sequenceDiagram
 
 ## Example Prompts
 
+The documented prompts are examples. The mock agent uses deterministic keyword heuristics, not a real language model, to decide which MCP tool to call.
+
 | Prompt | Tools | CIBA? | Behavior |
 | --- | --- | --- | --- |
 | `what is my current plan?` | `get_customer_profile` | No | Returns plan, account status, loyalty tier, cycle end, and usage. |
 | `how much data have I used?` | `get_customer_profile` | No | Returns mobile and home data usage from the profile tool. |
+| `what are my devices?` | `get_customer_profile` | No | Returns registered router/SIM devices and status. |
 | `show my bills` | `get_payment_summary` | Yes | Starts CIBA, returns pending approval, then polling returns recent bills after approval. |
 | `what is my latest bill?` | `get_payment_summary` | Yes | Same CIBA-protected payment path. |
+
+Current heuristic keywords:
+
+| Keyword family | Example keywords | Tool | CIBA? |
+| --- | --- | --- | --- |
+| Plan/service/profile | `plan`, `profile`, `service`, `fiber`, `mobile`, `subscription`, `package`, `tariff`, `contract` | `get_customer_profile` | No |
+| Usage | `usage`, `data`, `speed` | `get_customer_profile` | No |
+| Devices | `device`, `devices`, `router`, `sim` | `get_customer_profile` | No |
+| Billing/payments | `bill`, `billing`, `payment`, `invoice`, `due`, `balance`, `autopay`, `charge`, `amount`, `statement` | `get_payment_summary` | Yes |
 
 ## MCP Tools And Scopes
 
