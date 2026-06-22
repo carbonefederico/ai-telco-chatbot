@@ -165,22 +165,22 @@ If PingOne does not grant the caller application access to the target API resour
 
 The local services use these PingOne applications plus API resources:
 
-| PingOne object | Example app ID | Used by | Environment variables |
-| --- | --- | --- | --- |
-| `Customer Support Agent - Customer Portal` | `b0065845-ad96-441f-83cc-65fa59fd9713` | Browser OIDC login and authorization-code flow | `OIDC_CLIENT_ID`, optional `OIDC_CLIENT_SECRET` |
-| `Customer Support Agent - Customer Portal API` | `6a387af8-02bd-40e3-9d8f-3afe7ea1b942` | Portal backend confidential client for token exchange before calling the agent | `API_OAUTH_CLIENT_ID`, `API_OAUTH_CLIENT_SECRET`, `API_EXPECTED_AUDIENCE` |
-| `Customer Support Agent - Support Agent` | `023309b6-8424-4fa4-bd35-0161f693a60d` | Managed AI Agent entry whose Resources tab grants MCP access | `AGENT_OAUTH_CLIENT_ID`, `AGENT_OAUTH_CLIENT_SECRET` for the agent runtime client |
-| `Customer Support Agent - MCP Server` | `6aa10bdc-39bd-441b-8563-dd7708c0d526` | MCP server application and CIBA client for payment approval | `CIBA_CLIENT_ID`, `CIBA_CLIENT_SECRET` |
+| PingOne object | Used by | Environment variables |
+| --- | --- | --- |
+| `Customer Support Agent - Customer Portal` | Browser OIDC login and authorization-code flow | `OIDC_CLIENT_ID`, optional `OIDC_CLIENT_SECRET` |
+| `Customer Support Agent - Customer Portal API` | Portal backend confidential client for token exchange before calling the agent | `API_OAUTH_CLIENT_ID`, `API_OAUTH_CLIENT_SECRET`, `API_EXPECTED_AUDIENCE` |
+| `Customer Support Agent - Support Agent` | Managed AI Agent entry whose Resources tab grants MCP access | `AGENT_OAUTH_CLIENT_ID`, `AGENT_OAUTH_CLIENT_SECRET` for the agent runtime client |
+| `Customer Support Agent - MCP Server` | MCP server application and CIBA client for payment approval | `CIBA_CLIENT_ID`, `CIBA_CLIENT_SECRET` |
 
 You can use a dedicated agent application/client, or reuse one of your backend demo applications if that better matches your PingOne tenant. The important part is the grant: the agent backend client must be allowed to request the MCP API resource scopes.
 
 Create these API resources in **Applications > Resources**:
 
-| API resource | Example resource ID | Audience / expected audience env var | Scopes |
-| --- | --- | --- | --- |
-| `Customer Support Agent - Portal API` | `b372e4b8-a970-438b-bdf6-70201a0a0c28` | `customer-support-agent-portal-api` / `API_EXPECTED_AUDIENCE` | `customer-support-agent:portal-api:chat` |
-| `Customer Support Agent - Agent` | `fb853c72-434c-4fc0-bb1a-1e35719d0208` | `customer-support-agent-agent` / `AGENT_EXPECTED_AUDIENCE` | `customer-support-agent:agent:invoke` |
-| `Customer Support Agent - Customer MCP` | `beb10b64-2be8-43a8-ad47-94d6c85e7d7e` | `customer-support-agent-customer-mcp` / `MCP_EXPECTED_AUDIENCE` | `customer-support-agent:customer-mcp:profile:read`, `customer-support-agent:customer-mcp:payments:read` |
+| API resource | Audience / expected audience env var | Scopes |
+| --- | --- | --- |
+| `Customer Support Agent - Portal API` | `customer-support-agent-portal-api` / `API_EXPECTED_AUDIENCE` | `customer-support-agent:portal-api:chat` |
+| `Customer Support Agent - Agent` | `customer-support-agent-agent` / `AGENT_EXPECTED_AUDIENCE` | `customer-support-agent:agent:invoke` |
+| `Customer Support Agent - Customer MCP` | `customer-support-agent-customer-mcp` / `MCP_EXPECTED_AUDIENCE` | `customer-support-agent:customer-mcp:profile:read`, `customer-support-agent:customer-mcp:payments:read` |
 
 After the resources exist, configure the consuming side from the relevant **Resources** tab:
 
@@ -245,7 +245,7 @@ Environment values:
 ```bash
 API_EXPECTED_AUDIENCE=customer-support-agent-portal-api
 AGENT_TOKEN_EXCHANGE_SCOPE=customer-support-agent:agent:invoke
-API_OAUTH_CLIENT_ID=6a387af8-02bd-40e3-9d8f-3afe7ea1b942
+API_OAUTH_CLIENT_ID=YOUR_PORTAL_API_CLIENT_ID
 API_OAUTH_CLIENT_SECRET=YOUR_PORTAL_API_CLIENT_SECRET
 ```
 
@@ -361,7 +361,7 @@ Required settings:
 Environment values:
 
 ```bash
-CIBA_CLIENT_ID=6aa10bdc-39bd-441b-8563-dd7708c0d526
+CIBA_CLIENT_ID=YOUR_CIBA_CLIENT_ID
 CIBA_CLIENT_SECRET=YOUR_CIBA_CLIENT_SECRET
 CIBA_SCOPE=openid
 CIBA_MOCK_APPROVAL_SECONDS=8
