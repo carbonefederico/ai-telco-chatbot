@@ -142,17 +142,45 @@ The CIBA scope is separate from MCP authorization. MCP authorization is based on
 
 The demo is generic OIDC/OAuth, but the `.env.example` names the values you need from PingOne.
 
+### Authorization Model
+
+In PingOne, applications and API resources are separate concepts:
+
+- **Applications** are OAuth/OIDC clients. They initiate login, receive tokens, or use client credentials to perform backend exchanges.
+- **API resources** represent protected APIs. They define the token audience and the scopes that authorize access to that API.
+- **Application-resource grants** decide which application can request which scopes for which API resource.
+
+This demo follows that model at every boundary. When one component needs to call another protected component, the caller application must be granted access to the callee API resource scopes.
+
+| Call path | Caller application | Target API resource | Scope requested |
+| --- | --- | --- | --- |
+| Browser SPA -> Portal API | `Customer Support Agent - Customer Portal` | Portal API resource | `customer-support-agent:portal-api:chat` |
+| Portal API -> Agent API | `Customer Support Agent - Customer Portal API` | Agent API resource | `customer-support-agent:agent:invoke` |
+| Agent -> MCP Server | Agent backend application/client | MCP API resource | `customer-support-agent:customer-mcp:profile:read` and `customer-support-agent:customer-mcp:payments:read` |
+| MCP Server -> PingOne CIBA | CIBA-enabled MCP application/client | PingOne CIBA policy | `CIBA_SCOPE`, usually `openid` |
+
+If PingOne does not grant the caller application access to the target API resource/scope, token exchange succeeds only up to the scopes the caller is allowed to request, or fails with an OAuth error depending on policy.
+
 ### PingOne Objects Used By This Demo
 
-The local services use these PingOne applications/resources:
+The local services use these PingOne applications plus API resources:
 
 | PingOne object | Example app ID | Used by | Environment variables |
 | --- | --- | --- | --- |
 | `Customer Support Agent - Customer Portal` | `b0065845-ad96-441f-83cc-65fa59fd9713` | Browser OIDC login and authorization-code flow | `OIDC_CLIENT_ID`, optional `OIDC_CLIENT_SECRET` |
-| `Customer Support Agent - Customer Portal API` | `6a387af8-02bd-40e3-9d8f-3afe7ea1b942` | Portal backend confidential client for token exchange before calling the agent | `API_OAUTH_CLIENT_ID`, `API_OAUTH_CLIENT_SECRET` |
-| `Customer Support Agent - MCP Server` | `6aa10bdc-39bd-441b-8563-dd7708c0d526` | MCP target audience/resource and CIBA client for payment approval | `MCP_EXPECTED_AUDIENCE`, `CIBA_CLIENT_ID`, `CIBA_CLIENT_SECRET` |
+| `Customer Support Agent - Customer Portal API` | `6a387af8-02bd-40e3-9d8f-3afe7ea1b942` | Portal backend confidential client for token exchange before calling the agent | `API_OAUTH_CLIENT_ID`, `API_OAUTH_CLIENT_SECRET`, `API_EXPECTED_AUDIENCE` |
+| Agent backend application/client | Your selected agent client ID | Agent confidential client for token exchange before calling MCP | `AGENT_OAUTH_CLIENT_ID`, `AGENT_OAUTH_CLIENT_SECRET`, `AGENT_EXPECTED_AUDIENCE` |
+| `Customer Support Agent - MCP Server` | `6aa10bdc-39bd-441b-8563-dd7708c0d526` | MCP API resource, MCP expected audience, and CIBA client for payment approval | `MCP_EXPECTED_AUDIENCE`, `CIBA_CLIENT_ID`, `CIBA_CLIENT_SECRET` |
 
-The demo also has an **agent API boundary** between the portal backend and the agent service. In PingOne, model that boundary with an API/resource and an agent invocation scope such as `customer-support-agent:agent:invoke`. The portal backend exchanges the user token for that scope before calling `/a2a/message`.
+You can use a dedicated agent application/client, or reuse one of your backend demo applications if that better matches your PingOne tenant. The important part is the grant: the agent backend client must be allowed to request the MCP API resource scopes.
+
+Recommended API resources:
+
+| API resource | Expected audience env var | Scopes |
+| --- | --- | --- |
+| Portal API resource | `API_EXPECTED_AUDIENCE` | `customer-support-agent:portal-api:chat` |
+| Agent API resource | `AGENT_EXPECTED_AUDIENCE` | `customer-support-agent:agent:invoke` |
+| MCP API resource | `MCP_EXPECTED_AUDIENCE` | `customer-support-agent:customer-mcp:profile:read`, `customer-support-agent:customer-mcp:payments:read` |
 
 ### 1. Customer Portal Application
 
@@ -182,6 +210,11 @@ OIDC_SCOPES=openid profile customer-support-agent:portal-api:chat
 API_EXPECTED_AUDIENCE=customer-support-agent-portal-api
 ```
 
+PingOne grant required:
+
+- Bind the `Customer Support Agent - Customer Portal` application to the Portal API resource.
+- Allow the `customer-support-agent:portal-api:chat` scope.
+
 ### 2. Customer Portal API Application
 
 Create or configure the backend/API application used by the portal server. This is the confidential OAuth client that performs token exchange before the portal calls the agent.
@@ -209,6 +242,12 @@ API_OAUTH_CLIENT_SECRET=YOUR_PORTAL_API_CLIENT_SECRET
 
 The current code validates the frontend token and expected audience at the portal API. If you want the portal API to enforce an inbound chat scope, add a required-scope check on `POST /api/chat`; the current primary authorization demonstration is downstream token exchange and MCP tool scopes.
 
+PingOne grant required:
+
+- Bind the `Customer Support Agent - Customer Portal API` application to the Agent API resource.
+- Allow the `customer-support-agent:agent:invoke` scope.
+- Enable the token exchange grant or policy required by your PingOne environment for this application.
+
 ### 3. Agent API Resource
 
 Create an API resource for the agent service.
@@ -230,7 +269,27 @@ AGENT_TOKEN_EXCHANGE_SCOPE=customer-support-agent:agent:invoke
 
 The `Customer Support Agent - Customer Portal API` client must be allowed to perform token exchange for this agent scope.
 
-### 4. MCP Server Application And Resource
+### 4. Agent Backend Application For MCP Access
+
+Create or select the confidential application used by the agent backend when it exchanges the incoming agent token for an MCP-scoped token.
+
+Environment values:
+
+```bash
+MCP_TOKEN_EXCHANGE_SCOPE=customer-support-agent:customer-mcp:profile:read customer-support-agent:customer-mcp:payments:read
+AGENT_OAUTH_CLIENT_ID=YOUR_AGENT_BACKEND_CLIENT_ID
+AGENT_OAUTH_CLIENT_SECRET=YOUR_AGENT_BACKEND_CLIENT_SECRET
+```
+
+PingOne grant required:
+
+- Bind the agent backend application/client to the MCP API resource.
+- Allow both MCP scopes:
+  - `customer-support-agent:customer-mcp:profile:read`
+  - `customer-support-agent:customer-mcp:payments:read`
+- Enable the token exchange grant or policy required by your PingOne environment for this application.
+
+### 5. MCP Server Application And Resource
 
 Create or configure the MCP Server application/resource. It is the resource protected by the MCP scopes and can also be used as the CIBA client for payment approval.
 
@@ -248,13 +307,11 @@ Environment values:
 ```bash
 MCP_EXPECTED_AUDIENCE=customer-support-agent-customer-mcp
 MCP_TOKEN_EXCHANGE_SCOPE=customer-support-agent:customer-mcp:profile:read customer-support-agent:customer-mcp:payments:read
-AGENT_OAUTH_CLIENT_ID=YOUR_AGENT_BACKEND_CLIENT_ID
-AGENT_OAUTH_CLIENT_SECRET=YOUR_AGENT_BACKEND_CLIENT_SECRET
 ```
 
-The agent backend client must be allowed to perform token exchange for both MCP scopes. If you use the `Customer Support Agent - MCP Server` application for this local demo, use its client ID/secret for the relevant MCP/CIBA client variables.
+The inbound MCP token must have `MCP_EXPECTED_AUDIENCE` as its audience and must include the scope required by the called tool.
 
-### 5. CIBA Configuration
+### 6. CIBA Configuration
 
 Enable CIBA on the MCP Server application used for payment approval. The payment MCP tool starts CIBA and returns an approval-pending status to the agent.
 
@@ -277,6 +334,17 @@ CIBA_MOCK_APPROVAL_SECONDS=8
 ```
 
 `CIBA_SCOPE` is sent to PingOne for the CIBA transaction. It is not used for MCP tool authorization. Keep it aligned with your PingOne CIBA policy.
+
+## Prerequisites
+
+- Node.js 20 or newer and npm.
+- A PingOne environment with an OIDC discovery URI.
+- Permission to configure PingOne applications, API resources, scopes, application-resource grants, and token exchange policies.
+- A customer portal OIDC application with redirect URI `http://localhost:3000/callback`.
+- A Portal API resource, Agent API resource, and MCP API resource with the scopes listed above.
+- Application-resource grants that allow each caller application to request the scopes for the API it calls.
+- CIBA enabled for the MCP/CIBA application if you want real payment approval instead of `npm run dev:no-security`.
+- Local ports `3000`, `3001`, and `3002` available.
 
 ## Setup
 
